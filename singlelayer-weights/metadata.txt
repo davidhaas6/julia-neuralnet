@@ -1,0 +1,22 @@
+Meta-information for the single layer neural network weights
+
+weights-12_06-00_21.h5
+	Test error rate = 8.85%
+	Batch size = 8192
+	Alpha = 0.5
+	K = 10
+	50.793184 seconds (96.58 M allocations: 5.591 GiB, 1.29% gc time)
+
+weights-12_06-00_24.h5
+	Test error rate = 8.34%
+	Batch size = 16348
+	Alpha = 1
+	K = 10
+	84.816698 seconds (136.55 M allocations: 7.986 GiB, 1.23% gc time)
+
+weights-12_06-00_59.h5
+	Test error rate = 8.09%
+	Batch size = 16348
+	Alpha = 2
+	K = 10
+	74.864841 seconds (128.17 M allocations: 7.495 GiB, 1.12% gc time)
