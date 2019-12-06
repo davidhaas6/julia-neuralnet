@@ -5,6 +5,9 @@ using HDF5, Distributions, Random
 using Dates  # weights timestamp
 using Plots, Images  # demo
 
+# TODO Analyze error on each digit
+# TODO determine if you need a bias node
+
 
 #   ============================
 #   === Neural net functions ===
@@ -154,9 +157,9 @@ function train(input, target; batch_size = 256, alpha = 0.001)
         tau += 1
     end
 
-    # Print the final training results
-    v_err, v_erate = error(weights, input, target, test_idx)
-    t_err, t_erate = error(weights, input, target, train_idx)
+    # Print the final training results 
+    v_err, v_erate = error(best_weights, input, target, test_idx)
+    t_err, t_erate = error(best_weights, input, target, train_idx)
     printstyled("\n","="^30, " CONVERGED ", "="^30, bold=true, color=:yellow)
     printstyled("\nRESULTS:\n", bold=true, color=:yellow)
     printstyled("\tTraining error = $(round(t_err))\n", color=:light_cyan)
@@ -164,7 +167,7 @@ function train(input, target; batch_size = 256, alpha = 0.001)
     printstyled("\n\tValidation error = $(round(v_err))\n", color=:light_green)
     printstyled("\tValidation error rate = $(round(v_erate*100, digits=3))%\n", color=:light_green)
 
-    return weights, error_history, erate_history
+    return best_weights, error_history, erate_history
 end
 
 
@@ -290,7 +293,7 @@ function main(;weights=false)
     end
 
     # Hyperparameters
-    batch_size = 32
+    batch_size = 16348
     alpha = 2
 
     # Train
