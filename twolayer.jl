@@ -22,10 +22,10 @@ end
 # Calcualtes the error of the weights over a subset of the training data
 function error(weights, input, target, test_idx)
     N = length(test_idx)
-    err = 0
-    err_rate = 0
+    err = Threads.Atomic{Float64}(0)
+    err_rate = Threads.Atomic{Int}(0)
 
-    for n = 1:N
+    Threads.@threads for n = 1:N
         x = input[test_idx[n], :]
         t = target[test_idx[n], :]
         
@@ -38,15 +38,17 @@ function error(weights, input, target, test_idx)
             elseif y[k] == 1
                 y[k] -= eps()
             end
-            err += t[k] * log(y[k])
+            Threads.atomic_add!(err, Float64(t[k] * log(y[k])))
         end
 
         if argmax(t) != argmax(y)
-            err_rate += 1
+            Threads.atomic_add!(err_rate, 1)
         end
     end
-    err_rate /= N
-    return -err, err_rate
+
+    error = -err[]
+    error_rate = err_rate[] / N
+    return error, error_rate
 end
 
 # Runs forward propagation
@@ -118,15 +120,17 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     init_err, init_erate = error(best_weights, input, target, test_idx)
     push!(error_history, init_err)
     push!(erate_history, init_erate)
-    window_size = 7
-    validation_period = 10  # Checks validation error ever X epochs
+    window_size = 5
+    validation_period = 50  # Checks validation error ever X epochs
     
     # Display training settings
     printstyled("\n","="^20, " Training Info ", "="^20, "\n", bold=true)
     println("Hyperparameters:")
     println("\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n\tM = $M")
-    println("Training on $(data_usage)% of samples")
-    println("Validation period = $validation_period")
+    println("Training parameters:")
+    println("\tSample usage = $(data_usage)%")
+    println("\tValidation period = $validation_period iterations")
+    println("\tThreads = $(Threads.nthreads())")
 
     printstyled("\n", "="^20, " Begin ", "="^20, "\n", bold=true)
     while !stop
@@ -135,10 +139,12 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
         grad2 = zeros(size(weights2))
 
         # Calculate batch gradient
-        for n = 1:batch_size
-            sample_idx = train_idx[round(Int64, rand(pdf, 1)[1])]
-            x = input[sample_idx,:]
-            t = target[sample_idx,:]
+        #s = time()
+        batch_indicies = train_idx[round.(Int, rand(pdf, batch_size))]
+        #println(batch_indicies)
+        for idx in batch_indicies
+            x = input[idx,:]
+            t = target[idx,:]
 
             # Forward Propagation
             y, z, hidden_act = forward_prop((weights1, weights2), x)
@@ -162,7 +168,10 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
                     grad1[j,i] += delta_j * x[i]  
                 end
             end
+
         end
+        #elapsed = (time() - s) * 1000
+        #println("Batch time = $(round(elapsed,digits=2)) ms")
 
         # Update weights with Adam
         # layer 2
@@ -227,7 +236,7 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     printstyled("\n\tValidation error = $(round(v_err, digits=3))\n", color=:light_green)
     printstyled("\tValidation error rate = $(round(v_erate*100, digits=3))%\n\n", color=:light_green)
 
-    return best_weights, error_history, erate_history
+    return best_weights, error_history, erate_history, tau
 end
 
 
@@ -305,7 +314,7 @@ end
 
 # Saves the weights and the validation error history to an h5 file
 # Writes the training metadata to metadata.txt as well
-function save_weights(weights, test_err_rate, batch_size, alpha, M, val_err_hist, val_rate_hist)
+function save_weights(weights, test_err_rate, batch_size, alpha, M, data_usage, val_err_hist, val_rate_hist, niter)
     K = size(weights[2],1)
 
     # Save h5
@@ -323,6 +332,9 @@ function save_weights(weights, test_err_rate, batch_size, alpha, M, val_err_hist
         write(file, "\nweights-" * timestamp * ".h5\n");
         write(file, "\tTest error rate = $(round(test_err_rate*100, digits=2))%\n")
         write(file, "\tBatch size = $batch_size\n\tAlpha = $alpha\n\tM = $M\n\tK = $K\n")
+        write(file, "\tData usage = $(data_usage)%\n")
+        write(file, "\tNum iter = $niter\n")
+        write(file,"\n")
     end
 end
 
@@ -347,14 +359,16 @@ function main(;weights=false)
         return;
     end
 
-    # Hyperparameters   m=500, bs=1025, alpha=0.01 seemed somewhat promising ... 59% in 37 iter
-    batch_size = 128
-    alpha = .001
-    M = 3000
+    # Hyperparameters
+    batch_size = 64
+    alpha = .005
+    M = 500  # number of hidden nodes
+    data_usage = 25  # percent of data to use
 
     # Train
     train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
-    @time weights, v_hist, v_rate_hist = train(train_images, train_labels, M, batch_size, alpha, data_usage=100)
+    @time model = train(train_images, train_labels, M, batch_size, alpha, data_usage=data_usage)
+    weights, v_hist, v_rate_hist, n_iter = model
 
     # Test
     test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
@@ -362,7 +376,7 @@ function main(;weights=false)
     printstyled("\tTest error rate = $(round(test_erate*100, digits=3))%\n", color=:light_magenta)
 
     # Save
-    save_weights(weights, test_erate, batch_size, alpha, M, v_hist, v_rate_hist);
+    save_weights(weights, test_erate, batch_size, alpha, M, data_usage, v_hist, v_rate_hist, n_iter);
     println("\n\n")
     return weights
 end
