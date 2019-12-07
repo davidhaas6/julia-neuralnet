@@ -128,8 +128,9 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     println("Model parameters:")
     println("\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n\tM = $M")
     println("\nTraining parameters:")
-    println("\tSample usage = $(data_usage)%")
     println("\tValidation period = $validation_period iters")
+    println("\tSample usage = $(data_usage)%")
+    println("\tWindow size = $window_size")
     println("\tThreads = $(Threads.nthreads())")
 
     printstyled("\n", "="^20, " Begin ", "="^20, "\n", bold=true)
@@ -342,7 +343,7 @@ end
 # runs the whole shebang
 # weights can either be a K-by-D matrix of weights or a path to an h5 file
 # with the weights matrix stored in "weights" 
-function main(;weights=false)
+function main(M, alpha, batch_size; data_usage=100, weights=false)
     # Run pre-trained data and quit
     if weights != false
         @assert weights isa String || weights isa Array{Float64,2}
@@ -358,12 +359,6 @@ function main(;weights=false)
         printstyled("\tTest error rate = $(round(test_erate*100, digits=3))%\n", color=:light_magenta)
         return;
     end
-
-    # Hyperparameters
-    batch_size = 32
-    alpha = .005
-    M = 500  # number of hidden nodes
-    data_usage = 25  # percent of data to use
 
     # Train
     train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
