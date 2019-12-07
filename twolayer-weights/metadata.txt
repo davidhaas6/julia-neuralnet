@@ -1,1 +1,20 @@
 Meta-information for the two layer neural network weights
+
+weights-12_06-20_16.h5
+	Test error rate = 27.73%
+	Batch size = 1024
+	Alpha = 0.1
+	K = 10
+
+weights-12_06-20_51.h5
+	Test error rate = 34.54%
+	Batch size = 512
+	Alpha = 0.1
+	K = 10
+
+weights-12_06-22_19.h5
+	Test error rate = 17.61%
+	Batch size = 4096
+	Alpha = 0.1
+	K = 10
+	4054.212079 seconds (5.49 G allocations: 209.862 GiB, 0.45% gc time)
