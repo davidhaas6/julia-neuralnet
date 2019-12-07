@@ -46,7 +46,6 @@ function error(weights, input, target, test_idx)
         end
     end
     err_rate /= N
-    err /= N
     return -err, err_rate
 end
 
@@ -120,11 +119,18 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     push!(error_history, init_err)
     push!(erate_history, init_erate)
     window_size = 7
+    validation_period = 10  # Checks validation error ever X epochs
     
     # Display training settings
-    println("Training for batch_size = $batch_size, alpha = $alpha, K = $K, M = $M")
+    printstyled("\n","="^20, " Training Info ", "="^20, "\n", bold=true)
+    println("Hyperparameters:")
+    println("\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n\tM = $M")
+    println("Training on $(data_usage)% of samples")
+    println("Validation period = $validation_period")
 
+    printstyled("\n", "="^20, " Begin ", "="^20, "\n", bold=true)
     while !stop
+        print(".")
         grad1 = zeros(size(weights1))
         grad2 = zeros(size(weights2))
 
@@ -136,8 +142,8 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
 
             # Forward Propagation
             y, z, hidden_act = forward_prop((weights1, weights2), x)
-            
-            # Backpropagate
+
+            # Backpropagation
             # Layer 2
             for i = 1:M+1
                 for j = 1:K
@@ -184,28 +190,28 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
         end
 
         # Calculate error
-        weights = weights1, weights2
-        validation_error, validation_error_rate = error(weights, input, target, test_idx)
-        if validation_error < minimum(error_history)
-            best_weights = copy(weights)
-        end
-        push!(error_history, validation_error)
-        push!(erate_history, validation_error_rate)
+        if tau % validation_period == 0
+            weights = weights1, weights2
+            validation_error, validation_error_rate = error(weights, input, target, test_idx)
+            if validation_error < minimum(error_history)
+                best_weights = copy(weights)
+            end
+            push!(error_history, validation_error)
+            push!(erate_history, validation_error_rate)
 
-        #if tau % 20 == 0 || tau == 1
             println("\nIteration $(tau):")
-            println("\tNorm val error = $(round(validation_error,digits=3))")
+            println("\tVal error = $(round(validation_error,digits=3))")
             println("\tVal error rate = $(round(validation_error_rate*100,digits=2))%")
-        #end
-        
-        # Test stop conditions
-        if tau > (window_size * 10)
-            recent_err = mean(error_history[end-window_size:end])
-            past_err = mean(error_history[end-window_size*2:end-window_size]) 
+            
+            # Test stop conditions
+            if tau > (window_size * validation_period * 3)
+                recent_err = mean(error_history[end-window_size:end])
+                past_err = mean(error_history[end-window_size*2:end-window_size]) 
 
-            recent_erate = mean(erate_history[end-window_size:end])
-            past_erate = mean(erate_history[end-window_size*2:end-window_size]) 
-            stop = recent_err > past_err && recent_erate > past_erate 
+                recent_erate = mean(erate_history[end-window_size:end])
+                past_erate = mean(erate_history[end-window_size*2:end-window_size]) 
+                stop = recent_err > past_err && recent_erate > past_erate 
+            end
         end
 
         tau += 1
@@ -214,12 +220,12 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     # Print the final training results
     v_err, v_erate = error(best_weights, input, target, test_idx)
     t_err, t_erate = error(best_weights, input, target, train_idx)
-    printstyled("\n","="^30, " CONVERGED ", "="^30, bold=true, color=:yellow)
+    printstyled("\n","="^20, " CONVERGED ", "="^20, bold=true, color=:yellow)
     printstyled("\nRESULTS:\n", bold=true, color=:yellow)
     printstyled("\tTraining error = $(round(t_err, digits=3))\n", color=:light_cyan)
     printstyled("\tTraining error rate = $(round(t_erate*100, digits=3))%\n", color=:light_cyan)
     printstyled("\n\tValidation error = $(round(v_err, digits=3))\n", color=:light_green)
-    printstyled("\tValidation error rate = $(round(v_erate*100, digits=3))%\n", color=:light_green)
+    printstyled("\tValidation error rate = $(round(v_erate*100, digits=3))%\n\n", color=:light_green)
 
     return best_weights, error_history, erate_history
 end
@@ -342,13 +348,13 @@ function main(;weights=false)
     end
 
     # Hyperparameters   m=500, bs=1025, alpha=0.01 seemed somewhat promising ... 59% in 37 iter
-    batch_size = 64
-    alpha = .01
-    M = 1000
+    batch_size = 128
+    alpha = .001
+    M = 3000
 
     # Train
     train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
-    @time weights, v_hist, v_rate_hist = train(train_images, train_labels, M, batch_size, alpha, data_usage=25)
+    @time weights, v_hist, v_rate_hist = train(train_images, train_labels, M, batch_size, alpha, data_usage=100)
 
     # Test
     test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
@@ -357,8 +363,8 @@ function main(;weights=false)
 
     # Save
     save_weights(weights, test_erate, batch_size, alpha, M, v_hist, v_rate_hist);
-
+    println("\n\n")
     return weights
 end
 
-final_weights = main()
+final_weights = main();
