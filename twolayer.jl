@@ -120,16 +120,16 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     init_err, init_erate = error(best_weights, input, target, test_idx)
     push!(error_history, init_err)
     push!(erate_history, init_erate)
-    window_size = 5
+    window_size = 3
     validation_period = 50  # Checks validation error ever X epochs
     
     # Display training settings
     printstyled("\n","="^20, " Training Info ", "="^20, "\n", bold=true)
-    println("Hyperparameters:")
+    println("Model parameters:")
     println("\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n\tM = $M")
-    println("Training parameters:")
+    println("\nTraining parameters:")
     println("\tSample usage = $(data_usage)%")
-    println("\tValidation period = $validation_period iterations")
+    println("\tValidation period = $validation_period iters")
     println("\tThreads = $(Threads.nthreads())")
 
     printstyled("\n", "="^20, " Begin ", "="^20, "\n", bold=true)
@@ -360,7 +360,7 @@ function main(;weights=false)
     end
 
     # Hyperparameters
-    batch_size = 64
+    batch_size = 32
     alpha = .005
     M = 500  # number of hidden nodes
     data_usage = 25  # percent of data to use
