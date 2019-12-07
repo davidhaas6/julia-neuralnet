@@ -7,6 +7,7 @@ using Plots, Images  # demo
 
 # TODO Analyze error on each digit
 # TODO determine if you need a bias node
+# TODO Calculate bias and variance for the training error
 
 
 #   ============================

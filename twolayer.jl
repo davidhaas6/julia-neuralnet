@@ -46,7 +46,7 @@ function error(weights, input, target, test_idx)
         end
     end
     err_rate /= N
-
+    err /= N
     return -err, err_rate
 end
 
@@ -60,7 +60,7 @@ function forward_prop(weights, x)
     z = zeros(length(hidden_act)+1)
     y = zeros(length(output_act))
 
-    z[1] = 1
+    z[1] = 1  # bias
     for m = 1:M
         hidden_act[m] = sum(x[i] * w1[m,i] for i = 1:D)
         z[m+1] = sigmoid(hidden_act[m])
@@ -79,17 +79,20 @@ end
 
 # Train the neural network to generate a weight matrix
 # M -> number of hidden nodes
-function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
+# data_usage is in percent
+function train(input, target, M, batch_size, alpha; data_usage=100)
+    # Scale data usage
+    nrows = Int(round(size(target,1) * data_usage/100))
+    target = target[1:nrows,:]
+    input = input[1:nrows,:]
+    
+    # Get dimensions
     N, K = size(target)
     D = size(input, 2)
 
     # Initialize weight and activation vectors
-    input_size = D
-    hidden_size = M+1
-    output_size = K
-
-    weights1 = randn(M, input_size)
-    weights2 = randn(output_size, hidden_size)
+    weights1 = randn(M, D)
+    weights2 = randn(K, M+1)
     best_weights = weights1, weights2
 
     # Initialize training and holdout datasets
@@ -101,10 +104,10 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
 
     # Initialize Adam parameters
     tau = 1
-    m1_t = zeros(size(weights1)...)
-    v1_t = zeros(size(weights1)...)
-    m2_t = zeros(size(weights2)...)
-    v2_t = zeros(size(weights2)...)
+    m1_t = zeros(size(weights1))
+    v1_t = zeros(size(weights1))
+    m2_t = zeros(size(weights2))
+    v2_t = zeros(size(weights2))
     B1 = 0.9
     B2 = 0.999
     epsilon = 1e-8
@@ -113,9 +116,10 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
     stop = false
     error_history = zeros(1)
     erate_history = zeros(1)
-    push!(error_history, error(best_weights, input, target, test_idx)[1])
-    push!(erate_history, error(best_weights, input, target, test_idx)[2])
-    window_size = 10
+    init_err, init_erate = error(best_weights, input, target, test_idx)
+    push!(error_history, init_err)
+    push!(erate_history, init_erate)
+    window_size = 7
     
     # Display training settings
     println("Training for batch_size = $batch_size, alpha = $alpha, K = $K, M = $M")
@@ -135,8 +139,8 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
             
             # Backpropagate
             # Layer 2
-            for i = 1:hidden_size
-                for j = 1:output_size
+            for i = 1:M+1
+                for j = 1:K
                     if i == 1
                         grad2[j,i] += (y[j] - t[j])
                     else
@@ -146,9 +150,9 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
             end
 
             # Layer 1
-            for i = 1:input_size
-                for j = 1:M
-                    delta_j = sigmoid_prime(hidden_act[j]) * sum(weights2[k,j] * (y[k] - t[k]) for k in 1:output_size)
+            for j = 1:M
+                delta_j = sigmoid_prime(hidden_act[j]) * sum(weights2[k,j] * (y[k] - t[k]) for k in 1:K)
+                for i = 1:D
                     grad1[j,i] += delta_j * x[i]  
                 end
             end
@@ -156,8 +160,8 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
 
         # Update weights with Adam
         # layer 2
-        for i = 1:hidden_size
-            for j = 1:output_size
+        for i = 1:M+1
+            for j = 1:K
                 g_t = grad2[j,i]
                 m2_t[j,i] = B1*m2_t[j,i] + (1-B1)*g_t
                 v2_t[j,i] = B2*v2_t[j,i] + (1-B2)*g_t^2
@@ -168,7 +172,7 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
         end
 
         # layer 1
-        for i = 1:input_size
+        for i = 1:D
             for j = 1:M
                 g_t = grad1[j,i]
                 m1_t[j,i] = B1*m1_t[j,i] + (1-B1)*g_t
@@ -183,14 +187,14 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
         weights = weights1, weights2
         validation_error, validation_error_rate = error(weights, input, target, test_idx)
         if validation_error < minimum(error_history)
-            best_weights = weights
+            best_weights = copy(weights)
         end
         push!(error_history, validation_error)
         push!(erate_history, validation_error_rate)
 
         #if tau % 20 == 0 || tau == 1
             println("\nIteration $(tau):")
-            println("\tVal error = $(round(validation_error))")
+            println("\tNorm val error = $(round(validation_error,digits=3))")
             println("\tVal error rate = $(round(validation_error_rate*100,digits=2))%")
         #end
         
@@ -212,9 +216,9 @@ function train(input, target; M = 300, batch_size = 256, alpha = 0.001)
     t_err, t_erate = error(best_weights, input, target, train_idx)
     printstyled("\n","="^30, " CONVERGED ", "="^30, bold=true, color=:yellow)
     printstyled("\nRESULTS:\n", bold=true, color=:yellow)
-    printstyled("\tTraining error = $(round(t_err))\n", color=:light_cyan)
+    printstyled("\tTraining error = $(round(t_err, digits=3))\n", color=:light_cyan)
     printstyled("\tTraining error rate = $(round(t_erate*100, digits=3))%\n", color=:light_cyan)
-    printstyled("\n\tValidation error = $(round(v_err))\n", color=:light_green)
+    printstyled("\n\tValidation error = $(round(v_err, digits=3))\n", color=:light_green)
     printstyled("\tValidation error rate = $(round(v_erate*100, digits=3))%\n", color=:light_green)
 
     return best_weights, error_history, erate_history
@@ -295,8 +299,8 @@ end
 
 # Saves the weights and the validation error history to an h5 file
 # Writes the training metadata to metadata.txt as well
-function save_weights(weights, test_err_rate, batch_size, alpha, val_err_hist, val_rate_hist)
-    K = size(weights,1)
+function save_weights(weights, test_err_rate, batch_size, alpha, M, val_err_hist, val_rate_hist)
+    K = size(weights[2],1)
 
     # Save h5
     folder = "./twolayer-weights/"
@@ -312,7 +316,7 @@ function save_weights(weights, test_err_rate, batch_size, alpha, val_err_hist, v
     open(folder * "metadata.txt", "a") do file
         write(file, "\nweights-" * timestamp * ".h5\n");
         write(file, "\tTest error rate = $(round(test_err_rate*100, digits=2))%\n")
-        write(file, "\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n")
+        write(file, "\tBatch size = $batch_size\n\tAlpha = $alpha\n\tM = $M\n\tK = $K\n")
     end
 end
 
@@ -337,14 +341,14 @@ function main(;weights=false)
         return;
     end
 
-    # Hyperparameters
-    batch_size = 512
-    alpha = .1
-    M = 20
+    # Hyperparameters   m=500, bs=1025, alpha=0.01 seemed somewhat promising ... 59% in 37 iter
+    batch_size = 64
+    alpha = .01
+    M = 1000
 
     # Train
     train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
-    @time weights, v_hist, v_rate_hist = train(train_images, train_labels, M=M, batch_size=batch_size, alpha=alpha)
+    @time weights, v_hist, v_rate_hist = train(train_images, train_labels, M, batch_size, alpha, data_usage=25)
 
     # Test
     test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
@@ -352,7 +356,7 @@ function main(;weights=false)
     printstyled("\tTest error rate = $(round(test_erate*100, digits=3))%\n", color=:light_magenta)
 
     # Save
-    save_weights(weights, test_erate, batch_size, alpha, v_hist, v_rate_hist);
+    save_weights(weights, test_erate, batch_size, alpha, M, v_hist, v_rate_hist);
 
     return weights
 end
