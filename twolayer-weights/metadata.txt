@@ -18,3 +18,20 @@ weights-12_06-22_19.h5
 	Alpha = 0.1
 	K = 10
 	4054.212079 seconds (5.49 G allocations: 209.862 GiB, 0.45% gc time)
+
+weights-12_07-00_12.h5
+	Test error rate = 18.79%
+	Batch size = 64
+	Alpha = 0.01
+	M = 2000
+	K = 10
+	Data usage = 25%
+	1507.375670 seconds (1.21 G allocations: 54.175 GiB, 0.38% gc time)
+	
+weights-12_07-12_19.h5
+	Test error rate = 11.48%
+	Batch size = 256
+	Alpha = 0.005
+	M = 200
+	K = 10
+	897.737538 seconds (1.49 G allocations: 63.208 GiB, 2.44% gc time)	
