@@ -375,5 +375,3 @@ function main(M, alpha, batch_size; data_usage=100, weights=false)
     println("\n\n")
     return weights
 end
-
-final_weights = main();
