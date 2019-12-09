@@ -5,10 +5,6 @@ using HDF5, Distributions, Random
 using Dates  # weights timestamp
 using Plots, Images  # demo
 
-# TODO Analyze error on each digit
-# TODO determine if you need a bias node
-# TODO Calculate bias and variance for the training error
-
 
 #   ============================
 #   === Neural net functions ===
@@ -300,7 +296,7 @@ function digit_errors(weights; path=false)
     if path
         weights = h5read(weights, "weights")
     end
-    
+
     _, _, test_images, test_labels = load_data()
     num_wrong = zeros(10)'
     num_samples = zeros(10)'
