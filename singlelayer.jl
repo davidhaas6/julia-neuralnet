@@ -63,7 +63,7 @@ function train(input, target; batch_size = 256, alpha = 0.001)
     D = size(input, 2)
 
     # Initialize weight and activation vectors
-    weights = randn(K, D)  # TODO: Do I add a bias?
+    weights = randn(K, D)
     best_weights = weights
     output_act = zeros(K)
 
@@ -172,45 +172,6 @@ function train(input, target; batch_size = 256, alpha = 0.001)
 end
 
 
-#   ==========================
-#   === Analysis functions ===
-#   ==========================
-
-# Runs forward propagation... used for the demo
-function predict(image, weights)
-    K,D = size(weights)
-    output_act = zeros(K)
-    y = zeros(K)
-    for k = 1:K
-        output_act[k] = sum(image[i] * weights[k,i] for i = 1:D)
-    end
-    for k = 1:K
-        y[k] = softmax(k, output_act)
-    end      
-    return argmax(y)
-end
-
-# Runs the algorithm on a number of samples, plotting the prediction
-# along with the image
-function demo(weights; num_samples=100)
-    K = size(weights, 1)
-    _, _, images, labels = load_data(num_digits = K)
-    
-    # Pick random samples
-    idx = shuffle(1:size(labels,1))
-
-    for i = 1:num_samples
-        sample = images[idx[i],:]
-        label = argmax(labels[idx[i], :])-1
-        img = Gray.(normedview(N0f8, reshape(sample, 28, 28)))
-        titl = string("Predicted: ", predict(sample, weights)-1, " Label: ", label)
-        p = plot(img, title=titl, xaxis=false, yaxis=false)
-        display(p)
-        sleep(1)
-    end
-end
-
-
 #   ========================
 #   === Helper functions ===
 #   ========================
@@ -257,8 +218,13 @@ end
 function save_weights(weights, test_err_rate, batch_size, alpha, val_err_hist, val_rate_hist)
     K = size(weights,1)
 
-    # Save h5
+    # Ensure folder exists
     folder = "./singlelayer-weights/"
+    if !isdir(folder)
+        mkdir(folder)
+    end
+
+    # Save h5
     timestamp = Dates.format(Dates.now(), "mm_dd-HH_MM")
     path = folder * "weights-" * timestamp * ".h5"
     h5write(path, "weights", weights)
@@ -274,29 +240,93 @@ function save_weights(weights, test_err_rate, batch_size, alpha, val_err_hist, v
     end
 end
 
-# === Main ===
-# runs the whole shebang
-# weights can either be a K-by-D matrix of weights or a path to an h5 file
-# with the weights matrix stored in "weights" 
-function main(;weights=false)
-    # Run pre-trained data and quit
-    if weights != false
-        @assert weights isa String || weights isa Array{Float64,2}
-        if weights isa String
-            @assert endswith(weights, ".h5")
-            weights = h5read(weights, "weights")
-        end
-        _, _, test_images, test_labels = load_data(num_digits=size(weights,1))
-        test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
-        printstyled("\tTest error = $(round(test_err, digits=5))\n", color=:light_magenta)
-        printstyled("\tTest error rate = $(round(test_erate*100, digits=3))%\n", color=:light_magenta)
-        return;
+
+#   ==========================
+#   === Analysis functions ===
+#   ==========================
+
+# Runs forward propagation... used for the demo
+function predict(x, weights)
+    K,D = size(weights)
+    output_act = zeros(K)
+    y = zeros(K)
+    for k = 1:K
+        output_act[k] = sum(x[i] * weights[k,i] for i = 1:D)
     end
+    for k = 1:K
+        y[k] = softmax(k, output_act)
+    end      
+    return argmax(y)
+end
 
-    # Hyperparameters
-    batch_size = 16348
-    alpha = 2
+# Runs the algorithm on a number of samples, plotting the prediction
+# along with the image
+function demo(weights; num_samples=100)
+    K = size(weights, 1)
+    _, _, images, labels = load_data(num_digits = K)
+    
+    # Pick random samples
+    idx = shuffle(1:size(labels,1))
 
+    for i = 1:num_samples
+        sample = images[idx[i],:]
+        label = argmax(labels[idx[i], :])-1
+        img = Gray.(normedview(N0f8, reshape(sample, 28, 28)))
+        titl = string("Predicted: ", predict(sample, weights)-1, " Label: ", label)
+        p = plot(img, title=titl, xaxis=false, yaxis=false)
+        display(p)
+        sleep(1)
+    end
+end
+
+# Run pre-trained data
+function test_model(weights_path)
+    @assert endswith(weights_path, ".h5")
+
+    # Load data and model
+    weights = h5read(weights_path, "weights")
+    _, _, test_images, test_labels = load_data()
+
+    println("Testing model...")
+    test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
+
+    printstyled("Test error = $(round(test_err, digits=2))\n", color=:light_magenta)
+    printstyled("Test error rate = $(round(test_erate*100, digits=3))%\n\n", color=:light_magenta)
+
+    return test_err, test_erate
+end
+
+function digit_errors(weights; path=false)
+    if path
+        weights = h5read(weights, "weights")
+    end
+    
+    _, _, test_images, test_labels = load_data()
+    num_wrong = zeros(10)'
+    num_samples = zeros(10)'
+    
+    for n = 1:size(test_images,1)
+        # Load data in
+        x = test_images[n,:]
+        t = test_labels[n,:]
+        digit = argmax(t)-1
+
+        if (predict(x, weights)-1) != digit
+            num_wrong[digit+1] += Float64(1)
+        end
+
+        num_samples[digit+1] += Float64(1)
+    end
+    error_rate = num_wrong ./ num_samples * 100
+    
+    for digit in 1:10
+        println("Error rate for $(digit-1) = $(round(error_rate[digit],digits=2))%")
+    end
+end
+
+# === Main ===
+# trains and tests a model
+function main(alpha, batch_size)
     # Train
     train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
     @time weights, v_hist, v_rate_hist = train(train_images, train_labels, batch_size=batch_size, alpha=alpha)
@@ -311,5 +341,3 @@ function main(;weights=false)
 
     return weights
 end
-
-final_weights = main()

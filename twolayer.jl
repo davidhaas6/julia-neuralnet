@@ -1,6 +1,7 @@
-# A multiclass single layer NN used for classifying the MNIST dataset
+# A multiclass two layer NN used for classifying the MNIST dataset
 # David Haas
 # 12/5/19
+
 using HDF5, Distributions, Random
 using Dates  # weights timestamp
 using Plots, Images  # demo
@@ -20,6 +21,7 @@ function softmax(k, activations)
 end
 
 # Calcualtes the error of the weights over a subset of the training data
+# Utilizes multithreading
 function error(weights, input, target, test_idx)
     N = length(test_idx)
     err = Threads.Atomic{Float64}(0)
@@ -140,9 +142,7 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
         grad2 = zeros(size(weights2))
 
         # Calculate batch gradient
-        #s = time()
         batch_indicies = train_idx[round.(Int, rand(pdf, batch_size))]
-        #println(batch_indicies)
         for idx in batch_indicies
             x = input[idx,:]
             t = target[idx,:]
@@ -171,8 +171,6 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
             end
 
         end
-        #elapsed = (time() - s) * 1000
-        #println("Batch time = $(round(elapsed,digits=2)) ms")
 
         # Update weights with Adam
         # layer 2
@@ -271,6 +269,50 @@ function demo(weights; num_samples=100)
     end
 end
 
+# Run pre-trained data
+function test_model(weights_path)
+    @assert endswith(weights_path, ".h5")
+
+    # Load data and model
+    weights = h5read(weights_path, "w1"), h5read(weights_path, "w2")
+    _, _, test_images, test_labels = load_data()
+
+    println("Testing model...")
+    test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
+    printstyled("Test error = $(round(test_err, digits=2))\n", color=:light_magenta)
+    printstyled("Test error rate = $(round(test_erate*100, digits=3))%\n\n", color=:light_magenta)
+
+    return test_err, test_erate
+end
+
+function digit_errors(weights; path=false)
+    if path
+        weights = h5read(weights, "w1"), h5read(weights, "w2")
+    end
+
+    _, _, test_images, test_labels = load_data()
+    num_wrong = zeros(10)'
+    num_samples = zeros(10)'
+    
+    for n = 1:size(test_images,1)
+        # Load data in
+        x = test_images[n,:]
+        t = test_labels[n,:]
+        digit = argmax(t)-1
+
+        if (predict(x, weights)-1) != digit
+            num_wrong[digit+1] += Float64(1)
+        end
+
+        num_samples[digit+1] += Float64(1)
+    end
+    error_rate = num_wrong ./ num_samples * 100
+    
+    for digit in 1:10
+        println("Error rate for $(digit-1) = $(round(error_rate[digit],digits=2))%")
+    end
+end
+
 
 #   ========================
 #   === Helper functions ===
@@ -318,8 +360,13 @@ end
 function save_weights(weights, test_err_rate, batch_size, alpha, M, data_usage, val_err_hist, val_rate_hist, niter)
     K = size(weights[2],1)
 
-    # Save h5
+    # Ensure folder exists
     folder = "./twolayer-weights/"
+    if !isdir(folder)
+        mkdir(folder)
+    end
+
+    # Save h5
     timestamp = Dates.format(Dates.now(), "mm_dd-HH_MM")
     path = folder * "weights-" * timestamp * ".h5"
     h5write(path, "w1", weights[1])
@@ -343,25 +390,9 @@ end
 # runs the whole shebang
 # weights can either be a K-by-D matrix of weights or a path to an h5 file
 # with the weights matrix stored in "weights" 
-function main(M, alpha, batch_size; data_usage=100, weights=false)
-    # Run pre-trained data and quit
-    if weights != false
-        @assert weights isa String || weights isa Array{Float64,2}
-        if weights isa String
-            @assert endswith(weights, ".h5")
-            w1 = h5read(weights, "w1")
-            w2 = h5read(weights, "w2")
-            weights = w1, w2
-        end
-        _, _, test_images, test_labels = load_data(num_digits=size(weights,1))
-        test_err, test_erate = error(weights,test_images,test_labels,1:size(test_labels,1))
-        printstyled("\tTest error = $(round(test_err, digits=5))\n", color=:light_magenta)
-        printstyled("\tTest error rate = $(round(test_erate*100, digits=3))%\n", color=:light_magenta)
-        return;
-    end
-
+function main(M, alpha, batch_size; data_usage=100)
     # Train
-    train_images, train_labels, test_images, test_labels = load_data(num_digits=10)
+    train_images, train_labels, test_images, test_labels = load_data()
     @time model = train(train_images, train_labels, M, batch_size, alpha, data_usage=data_usage)
     weights, v_hist, v_rate_hist, n_iter = model
 
