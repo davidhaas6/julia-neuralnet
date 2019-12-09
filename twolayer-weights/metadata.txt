@@ -1,33 +1,5 @@
 Meta-information for the two layer neural network weights
 
-weights-12_06-20_16.h5
-	Test error rate = 27.73%
-	Batch size = 1024
-	Alpha = 0.1
-	K = 10
-
-weights-12_06-20_51.h5
-	Test error rate = 34.54%
-	Batch size = 512
-	Alpha = 0.1
-	K = 10
-
-weights-12_06-22_19.h5
-	Test error rate = 17.61%
-	Batch size = 4096
-	Alpha = 0.1
-	K = 10
-	4054.212079 seconds (5.49 G allocations: 209.862 GiB, 0.45% gc time)
-
-weights-12_07-00_12.h5
-	Test error rate = 18.79%
-	Batch size = 64
-	Alpha = 0.01
-	M = 2000
-	K = 10
-	Data usage = 25%
-	1507.375670 seconds (1.21 G allocations: 54.175 GiB, 0.38% gc time)
-	
 weights-12_07-12_19.h5
 	Test error rate = 11.48%
 	Batch size = 256
@@ -35,3 +7,61 @@ weights-12_07-12_19.h5
 	M = 200
 	K = 10
 	897.737538 seconds (1.49 G allocations: 63.208 GiB, 2.44% gc time)	
+
+weights-12_07-14_33.h5
+	Test error rate = 10.21%
+	Batch size = 256
+	Alpha = 0.005
+	M = 500
+	K = 10
+	Data usage = 100%
+	Num iter = 4801
+	4586.715200 seconds (4.58 G allocations: 188.308 GiB, 1.19% gc time)
+
+weights-12_07-18_07.h5
+	Test error rate = 11.19%
+	Batch size = 1024
+	Alpha = 0.01
+	M = 200
+	K = 10
+	Data usage = 50%
+	Num iter = 1751
+	1004.616846 seconds (1.67 G allocations: 66.936 GiB, 1.64% gc time)
+
+weights-12_07-19_01.h5
+	Test error rate = 10.09%
+	Batch size = 1024
+	Alpha = 0.008
+	M = 300
+	K = 10
+	Data usage = 50%
+	Num iter = 2401
+
+weights-12_07-20_49.h5
+	Test error rate = 11.52%
+	Batch size = 4096
+	Alpha = 0.05
+	M = 300
+	K = 10
+	Data usage = 50%
+	Num iter = 751
+
+weights-12_08-04_00.h5
+	Test error rate = 9.2%
+	Batch size = 1024
+	Alpha = 0.008
+	M = 600
+	K = 10
+	Data usage = 100%
+	Num iter = 3350
+	9459.037125 seconds (10.12 G allocations: 394.162 GiB, 1.19% gc time)
+
+weights-12_08-13_45.h5
+	Test error rate = 8.76%
+	Batch size = 1024
+	Alpha = 0.008
+	M = 1000
+	K = 10
+	Data usage = 100%
+	Num iter = 3600
+	17501.003176 seconds (17.98 G allocations: 696.843 GiB, 0.99% gc time)
