@@ -126,7 +126,7 @@ function train(input, target, M, batch_size, alpha; data_usage=100)
     # Display training settings
     printstyled("\n","="^20, " Training Info ", "="^20, "\n", bold=true)
     println("Model parameters:")
-    println("\tBatch size = $batch_size\n\tAlpha = $alpha\n\tK = $K\n\tM = $M")
+    println("\tM = $M\n\tAlpha = $alpha\n\tBatch size = $batch_size\n\tK = $K")
     println("\nTraining parameters:")
     println("\tValidation period = $validation_period iters")
     println("\tSample usage = $(data_usage)%")
