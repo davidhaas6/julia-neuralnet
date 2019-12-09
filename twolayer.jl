@@ -15,13 +15,24 @@ sigmoid(a) = 1/(1+exp(-a))
 sigmoid_prime(a) = sigmoid(a) * (1 - sigmoid(a))
 
 # A numerically stable softmax -- no NaNs
+# Inputs:
+#   activations: a vector of the activation values for the nodes in the softmax layer
+#   k: The index of the node to run softmax on
+# Outputs:
+#   The result of the softmax calculation
 function softmax(k, activations)
     log_C = -maximum(activations)
     return exp(activations[k] + log_C) / sum(exp(ak + log_C) for ak in activations)
 end
 
-# Calcualtes the error of the weights over a subset of the training data
-# Utilizes multithreading
+# Calcualtes the cross-entropy error of the weights over a subset of the training data w/ multithreading
+# Inputs:
+#   weights: a tuple of the 1st and 2nd layer weights
+#   input: the input data
+#   target: the labels for the input data
+#   test_idx: the indicies in input to calculate the error over
+# Outputs:
+#   The cross-entropy error and error rate over the input
 function error(weights, input, target, test_idx)
     N = length(test_idx)
     err = Threads.Atomic{Float64}(0)
@@ -53,7 +64,12 @@ function error(weights, input, target, test_idx)
     return error, error_rate
 end
 
-# Runs forward propagation
+# Forward propagates the input/weight combinations to the output nodes
+# Inputs:
+#   weights: a tuple of the 1st and 2nd layer weights
+#   x: the input sample
+# Outputs:
+#   the outputs of the softmax layer, hidden layer, and the hidden layer activations
 function forward_prop(weights, x)
     w1, w2 = weights
     M,D = size(w1)
@@ -81,8 +97,17 @@ function forward_prop(weights, x)
 end
 
 # Train the neural network to generate a weight matrix
-# M -> number of hidden nodes
-# data_usage is in percent
+# Inputs:
+#   input: the input data
+#   target: the labels for the input data
+#   M: the number of hidden nodes
+#   batch_size: the batch size for stochastic gradient descent
+#   alpha: the learning rate for Adam
+#   data_usage: the percentage of the input data to train off of
+# Outputs:
+#   A tuple of the 1st and 2nd layer weights,
+#   Vectors of the validation error and error rate throughout training
+#   The number of iterations until convergence
 function train(input, target, M, batch_size, alpha; data_usage=100)
     # Scale data usage
     nrows = Int(round(size(target,1) * data_usage/100))
@@ -243,14 +268,21 @@ end
 #   === Analysis functions ===
 #   ==========================
 
-# Runs forward propagation... used for the demo
+# Runs forward propagation and returns the most likely output
+# Inputs:
+#   x: the data sample to predict the class of
+#   weights: a tuple containing the weights for the model
+# Outputs:
+#   The predicted class of x
 function predict(x, weights)
     y, _, _ = forward_prop(weights,x)
     return argmax(y)
 end
 
-# Runs the algorithm on a number of samples, plotting the prediction
-# along with the image
+# Runs the algorithm on a number of samples, plotting the prediction and image
+# Inputs:
+#   weights: a tuple containing the weights for the model
+#   num_samples: The number of samples to display and predict
 function demo(weights; num_samples=100)
     K = size(weights, 1)
     _, _, images, labels = load_data(num_digits = K)
@@ -269,7 +301,11 @@ function demo(weights; num_samples=100)
     end
 end
 
-# Run pre-trained data
+# Loads in weights and calculates the test set accuracy
+# Inputs:
+#   weights_path: The path to an .h5 file of the weights
+# Outputs:
+#   The error and error rate of the test set
 function test_model(weights_path)
     @assert endswith(weights_path, ".h5")
 
@@ -285,6 +321,10 @@ function test_model(weights_path)
     return test_err, test_erate
 end
 
+# Calculates the error rate for each digit
+# Inputs:
+#   weights: either a tuple containing weights or a path to a .h5 file containing the weights
+#   path: True if weights is a path to an h5 file
 function digit_errors(weights; path=false)
     if path
         weights = h5read(weights, "w1"), h5read(weights, "w2")
@@ -319,6 +359,10 @@ end
 #   ========================
 
 # Loads in the training and test data from mnist.h5 and preprocesses it
+# Inputs:
+#   num_digits: The number of digits (max 10) to load in
+# Outputs:
+#   A 4-element tuple containing the training and test images and labels
 function load_data(;num_digits=10)
     # Read in data
     train_images = h5read("mnist.h5", "train/images")
@@ -357,6 +401,16 @@ end
 
 # Saves the weights and the validation error history to an h5 file
 # Writes the training metadata to metadata.txt as well
+# Inputs:
+#   weights: a tuple containing the weights for the model
+#   test_err_rate: The error rate of the model over the test set
+#   batch_size: The batch size the model was trained on
+#   alpha: The alpha the model was trained on 
+#   M: The number of hidden nodes the model contains
+#   data_usage: The percent of the input data the model was trained on
+#   val_err_hist: A vector of the error history as the model was training
+#   val_rate_hist: A vector of the error rate history as the model was training
+#   niter: The number of iterations the model took to converge
 function save_weights(weights, test_err_rate, batch_size, alpha, M, data_usage, val_err_hist, val_rate_hist, niter)
     K = size(weights[2],1)
 
@@ -387,9 +441,14 @@ function save_weights(weights, test_err_rate, batch_size, alpha, M, data_usage, 
 end
 
 # === Main ===
-# runs the whole shebang
-# weights can either be a K-by-D matrix of weights or a path to an h5 file
-# with the weights matrix stored in "weights" 
+# Loads in MNIST data, trains a model, tests it, then saves it.
+# Inputs:
+#   M: The number of hidden nodes in the network
+#   alpha: The learning rate of Adam
+#   batch_size: The number of samples to use in a batch
+#   data_usage: The percent of the data to train off of
+# Outputs:
+#   A tuple of the weights the model converged on
 function main(M, alpha, batch_size; data_usage=100)
     # Train
     train_images, train_labels, test_images, test_labels = load_data()
