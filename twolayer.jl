@@ -285,7 +285,7 @@ end
 #   num_samples: The number of samples to display and predict
 function demo(weights; num_samples=100)
     K = size(weights, 1)
-    _, _, images, labels = load_data(num_digits = K)
+    _, _, images, labels = load_data()
     
     # Pick random samples
     idx = shuffle(1:size(labels,1))
@@ -294,7 +294,7 @@ function demo(weights; num_samples=100)
         sample = images[idx[i],:]
         label = argmax(labels[idx[i], :])-1
         img = Gray.(normedview(N0f8, reshape(sample, 28, 28)))
-        titl = string("Predicted: ", predict(sample, weights)-1, " Label: ", label)
+        titl = string("My Neural Net thinks this is a ", predict(sample, weights)-1, "... (its a ", label, ")")
         p = plot(img, title=titl, xaxis=false, yaxis=false)
         display(p)
         sleep(1)
